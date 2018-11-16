@@ -1,0 +1,219 @@
+mport json
+import sys
+import csv
+
+#### ADD YOUR FUNCTIONS HERE ####
+def get_mapping(mapping_filename):
+    file = open(mapping_filename, encoding="utf-8")
+    reader = csv.reader(file)
+    dict = {}
+    for row in reader:
+        dict[row[0]]=row[1]
+    return dict
+
+def get_movies(movie_filename):
+    file = open(movie_filename, encoding="utf-8")
+    reader = csv.reader(file)
+    list = []
+
+    for row in reader:
+        dict = {}
+        dict["title"] = row[0]
+        dict["year"] = int(row[1])
+        dict["rating"] = float(row[2])
+        dict["directors"] = row[3].split(',')
+        dict["actors"] = row[4].split(',')
+        dict["genres"] = row[5].split(',')
+
+        list.append(dict)
+
+    return list
+
+def sort_list_of_dicts(items, dict_key, name_key, reverse = False):
+
+    a = sorted(items, key=lambda item: (item[name_key]), reverse=False)
+    b = sorted(a, key=lambda item: (item[dict_key]), reverse=reverse)
+
+    return b
+
+
+def top_n_actors(movies, n):
+    moviecount = {}
+    for mov in movies:
+        k = mov["actors"]
+        for names in k:
+            if names not in moviecount:
+                moviecount[names] = 1
+            else:
+                moviecount[names] += 1
+    lst = []
+    for acotorname in moviecount:
+        newdict = {}
+        newdict['actor'] = acotorname
+        newdict['score'] = moviecount[acotorname]
+        lst.append(newdict)
+    newlist = sort_list_of_dicts(lst,'score', 'actor', reverse = True)
+    if newlist != None:
+        newlist = newlist[:n]
+
+    return newlist
+
+
+def top_n_versatile_actors(movies, n):
+    dic = {}
+    for mov in movies:
+        k = mov['actors']
+        genre = mov['genres']
+        for names in k:
+            if names not in dic:
+                lst = []
+                dic[names] = lst
+            for type in genre:
+                if type not in dic[names]:
+                    dic[names].append(type)
+    for scores in dic:
+        dic[scores] = len(dic[scores])
+
+    lst1 = []
+    for a in dic:
+        newdic = {}
+        newdic['actor'] = a
+        newdic['score'] = dic[a]
+        lst1.append(newdic)
+    newlist = sort_list_of_dicts(lst1, 'score','actor', reverse=True)
+    if newlist != None:
+        newlist = newlist[:n]
+    return newlist
+
+def top_n_directors(movies, n):
+    dic = {}
+    for mov in movies:
+        k = mov['directors']
+        r = mov['rating']
+        for names in k:
+            if names not in dic:
+                lst = []
+                dic[names] = lst
+            dic[names].append(r)
+
+    fiveormore = {}
+    for numdirector in dic:
+        if len(dic[numdirector]) > 4:
+            fiveormore[numdirector] = dic[numdirector]
+
+    lst1 = []
+    for a in fiveormore:
+        newdict = {}
+        ratinglist = fiveormore[a]
+        ratinglist.sort()
+        m = len(fiveormore[a])
+        if m % 2 == 1:
+            newdict['director'] = a
+            newdict['score'] = ratinglist[(m-1)//2]
+            lst1.append(newdict)
+        else:
+            m1 = ratinglist[(m-1)//2]
+            m2 = ratinglist[(m-1)//2 + 1]
+            newdict['director'] = a
+            newdict['score'] = (m1 + m2)/2
+            lst1.append(newdict)
+
+    newlist = sort_list_of_dicts(lst1, 'score','director', reverse=True)
+    if newlist != None:
+        newlist = newlist[:n]
+    return newlist
+
+
+def stats(movies):
+    titles = []
+    actors = []
+    directors = []
+    genres = []
+
+    for mov in movies:
+        if mov["title"] not in titles:
+            titles.append(mov["title"])
+
+        for gen in mov['genres']:
+            if gen not in genres:
+                genres.append(gen)
+
+        for act in mov['actors']:
+            if act not in actors:
+                actors.append(act)
+
+        for dir in mov['directors']:
+            if dir not in directors:
+                directors.append(dir)
+
+    dict = {'num_movies':len(titles), 'num_actors':len(actors),
+            'num_directors': len(directors), 'num_genres':len(genres)}
+
+    return dict
+
+def read_data(movie_filename, mapping_filename):
+    movs = get_movies(movie_filename)
+    maps = get_mapping(mapping_filename)
+
+    for mov in movs:
+        for k in mov:
+            if k == 'actors' or k == 'directors':
+                for i,str in enumerate(mov.get(k)):
+                    mov.get(k)[i] = maps.get(mov.get(k)[i])
+
+            if k == 'title':
+                mov[k] = maps.get(mov[k])
+
+    return movs
+
+
+def process_args():
+    """
+    sys.argv[0] is the python file (in our case, it's going to be main.py)
+    sys.argv[1] is the command
+    sys.argv[2] is the movie file
+    sys.argv[3] is the mapping file
+    sys.argv[4] onwards are additional parameters required by your commands
+    HINT : everything in argv is going to be a string!
+    """
+    if len(sys.argv) < 4:
+        print("USAGE: python main.py <command> <movie file> <mapping file> <args for command>")
+        return
+
+    command = sys.argv[1]
+    if command == 'stats':
+        movies = read_data(sys.argv[2],sys.argv[3])
+        output = stats(movies)
+        print(json.dumps(output, indent=2))
+        return
+
+    if command == "something":
+        myoutput = "We're going to be printing all output using json.dumps!"
+        print(json.dumps(myoutput, indent=2))
+        return
+
+    if command == 'top_n_actors':
+        movies = read_data(sys.argv[2],sys.argv[3])
+        output = top_n_actors(movies,int(sys.argv[4]))
+        print(json.dumps(output, indent=2))
+        return
+
+    if command == 'top_n_versatile_actors':
+        movies = read_data(sys.argv[2],sys.argv[3])
+        output = top_n_versatile_actors(movies,int(sys.argv[4]))
+        print(json.dumps(output, indent=2))
+        return
+
+    if command == 'top_n_directors':
+        movies = read_data(sys.argv[2],sys.argv[3])
+        output = top_n_directors(movies,int(sys.argv[4]))
+        print(json.dumps(output, indent=2))
+        return
+
+def main():
+    process_args()
+
+if __name__ == '__main__':
+    main()
+
+
